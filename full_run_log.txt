@@ -1,0 +1,124 @@
+Running 7 module(s): frame_integrity, accessibility_consistency, achieved_target_definitions, partner_coverage_alignment, partner_package_alignment, cross_repo_propagation_freshness, dashboard_deletion_identity
+
+>>> frame_integrity (1_sampling)...
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+    done in 2.5s
+
+>>> accessibility_consistency (1_sampling)...
+    done in 1.4s
+
+>>> achieved_target_definitions (1_sampling)...
+    done in 1.6s
+
+>>> partner_coverage_alignment (cross-repo)...
+New names:
+• `` -> `...16`
+New names:
+• `` -> `...23`
+New names:
+• `` -> `...12`
+New names:
+• `` -> `...16`
+New names:
+• `` -> `...23`
+New names:
+• `` -> `...12`
+    done in 2.1s
+
+>>> partner_package_alignment (cross-repo, SLOW (~2-3 min, parses ~700 KML files))...
+    done in 10.8s
+
+>>> cross_repo_propagation_freshness (cross-repo)...
+    done in 0.1s
+
+>>> dashboard_deletion_identity (2_monitoring, SLOW (~1 min, sources the whole dashboard))...
+    done in 11.6s
+Warning messages:
+1: package 'readxl' was built under R version 4.6.1 
+2: package 'DT' was built under R version 4.6.1 
+3: package 'openxlsx' was built under R version 4.6.1 
+4: package 'cowplot' was built under R version 4.6.1 
+5: package 'shinyWidgets' was built under R version 4.6.1 
+
+==============================================================================
+SUMMARY: 19 PASS / 2 WARN / 3 FAIL  (of 24 checks)
+==============================================================================
+
+
+--- frame_integrity ---
+[PASS] Zero duplicate survey_ids (FULL)
+        0 duplicate survey_id rows in FULL (NGA_MSNA_2026_stage2_sampling_frame_v10_FULL.csv)
+[PASS] Zero duplicate survey_ids (WORKING)
+        0 duplicate survey_id rows in WORKING (NGA_MSNA_2026_stage2_sampling_frame_v10_WORKING.csv)
+[PASS] No literal 'NA' string in ward_accessible_status (FULL)
+        0 rows with the literal text "NA" instead of a real value or true blank - signature of a skipped stamping step (2026-09-08h incident)
+[PASS] Every WORKING survey_id exists in FULL
+        0 WORKING rows have a survey_id absent from FULL entirely (WORKING should always be a filtered subset of FULL)
+
+--- accessibility_consistency ---
+[PASS] Ward accessibility layer is not older than the master ward status file
+        accessible_area_lga_ward_portions.csv mtime=2026-09-17 01:16:48 vs master_accessibility_status_ward_level.csv mtime=2026-09-17 01:13:29 (2026-09-07 incident: a stale shapefile let clusters get drawn into wards already known Inaccessible)
+[PASS] Zero WORKING rows sit in a currently-Inaccessible ward (direct cross-check, not cached column)
+        0 WORKING rows have (State,LGA,Ward) matching a ward master status calls Inaccessible - checked directly against master_accessibility_status_ward_level.csv, not the row's own cached ward_accessible_status
+[WARN] Unmatched-ward rows are not silently defaulting to Accessible
+        42550 rows (34.73%) have a ward not found in master status AND show ward_accessible_status=Accessible - some are legitimate never-monitored states (Kano/Niger/Kogi etc, per 2026-09-08d), but a high/rising rate would suggest a real defaulting bug
+
+--- achieved_target_definitions ---
+[FAIL] Strata with achieved_sample > target_sample stays within the calibrated ceiling
+        48 of 307 strata show achieved_sample > target_sample (calibrated ceiling: 40). A small residual is normal cluster-rounding noise; anything above the ceiling signals a missing ward-accessibility/other filter in the achieved computation, per the 2026-09-05 incident (75/314 strata, up to 2x overstatement) - not real over-collection.
+[PASS] Zero-accessible-primary clusters are fully excluded from WORKING (below-threshold regression guard)
+        0 WORKING rows belong to a cluster with ZERO accessible primary households - these clusters should be fully excluded under the <4-accessible-primary rule, but a cluster with exactly 0 (not 1-3) accessible primaries was invisible to the old count()-based check (fixed 2026-09-19, 17 clusters/24 rows nationally at the time). Any nonzero result here means this bug (or an equivalent) has recurred.
+[PASS] MSNA Light rows present in household-level WORKING (informational)
+        534 MSNA Light rows in WORKING (expected - field teams need them on the to-do list; the actual isolation check is that these never inflate NORMAL strata's achieved_sample, verified via the partner_coverage/partner_package modules' national sweep finding no contamination)
+
+--- partner_coverage_alignment ---
+[PASS] 1_sampling's and 2_monitoring's own copies of Partnerscoverage.xlsx agree
+        0 LGA-partner markers differ between the two copies (1_sampling only: 0, 2_monitoring only: 0). These are two independently-maintained copies of the same source file with no sync mechanism - found genuinely drifted by a full month on 2026-09-19 (Dikwa reassignment never reached 2_monitoring's copy).
+[PASS] partner_lga_assignment.csv agrees between dashboard_app and input_data mirrors
+        0 rows differ between the two mirrored copies of partner_lga_assignment.csv
+[WARN] Every partner-LGA pair in 1_sampling's Partnerscoverage.xlsx also appears in the frame's partners_covering
+        12 LGA-partner pairs exist in Partnerscoverage.xlsx but not in the frame's partners_covering column (could be legitimate name-variant mismatches - see the 10 hand-reconciled variants in analysis_partner_coverage.py - or a real sync gap; each should be individually explained, not assumed benign)
+
+--- partner_package_alignment ---
+[FAIL] Zero stale points across all partner KML files (excluded from WORKING but still shown as active)
+        1 stale points nationally across 19 partners (worst: FACT with 1) - a point excluded from WORKING (accessibility overlay, capacity drop, threshold rule) that's still shown as an active target on a partner's live Map.me/KML
+[PASS] Zero missing points across all partner KML files (active in WORKING but absent from KML)
+        1 points nationally are active in WORKING but not in any partner's live KML (a small single-digit residual can be normal edge-case timing; systematic gaps point to a batch never pushed)
+[FAIL] Zero stale partner/LGA folders (partner no longer assigned an LGA still has a live package folder for it)
+        5 stale LGA folders found across all partners - a partner reassignment (like Dikwa/Street Child->FACT, 2026-09-19) must remove the losing partner's folder, not just build the gaining partner's
+
+--- cross_repo_propagation_freshness ---
+[PASS] Freshness: dashboard_app mirror (WORKING)
+        source mtime=2026-09-19 21:53:25 (17241201 bytes) vs mirror mtime=2026-09-19 22:33:27 (17241201 bytes). byte-identical, current
+[PASS] Freshness: input_data mirror (WORKING)
+        source mtime=2026-09-19 21:53:25 (17241201 bytes) vs mirror mtime=2026-09-19 22:26:42 (17241201 bytes). byte-identical, current
+[PASS] Freshness: dashboard_app mirror (FULL)
+        source mtime=2026-09-19 21:53:21 (58303445 bytes) vs mirror mtime=2026-09-19 22:33:27 (58303445 bytes). byte-identical, current
+[PASS] Freshness: input_data mirror (FULL)
+        source mtime=2026-09-19 21:53:21 (58303445 bytes) vs mirror mtime=2026-09-19 22:26:42 (58303445 bytes). byte-identical, current
+[PASS] _frame_version.txt identical between source and 2_monitoring mirror
+        Source: c:/Users/JackPHILPOTT/ACTED/IMPACT NGA - 02. MSNA/4. Data/MSNA N-WEC 2026/1_sampling/output/data/data_collection/_frame_version.txt | Mirror: c:/Users/JackPHILPOTT/ACTED/IMPACT NGA - 02. MSNA/4. Data/MSNA N-WEC 2026/2_monitoring/input_data/sampling_frame/_frame_version.txt
+
+--- dashboard_deletion_identity ---
+[PASS] Collected = Achieved + Confirmed Deletion + Pending Deletion holds exactly (national)
+        Collected=22335, Achieved=20844, Confirmed=1491, Pending(residual)=0. This identity must hold by construction - Pending is deliberately a residual (collected-achieved-confirmed), never an independently-summed count, precisely so it can never drift via double-counting.
+[PASS] NO_APPEAL_DELETION_REASONS is exactly {duration_under_20, no_consent}
+        Found definition: NO_APPEAL_DELETION_REASONS <- c("duration_under_20", "no_consent")
+[PASS] fcs_zero has zero exclusion effect on Achieved
+        0 completed rows are excluded from Achieved with fcs_zero as the only apparent reason - fcs_zero was downgraded 2026-09-10 to a plain logical-error flag with no deletion effect
+
+==============================================================================
+RESULT: FAIL - see [FAIL] items above.
+==============================================================================
+
+Machine-readable copy written to: run_history/run_2026-09-19_231048.csv

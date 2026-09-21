@@ -1,0 +1,17 @@
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Warning message:
+package 'readxl' was built under R version 4.6.1 
+Error in run_partner_package_alignment_checks(log) : 
+  object 'MONITORING_ROOT' not found
+Calls: run_partner_package_alignment_checks -> read_csv -> standardise_literal_data -> file.path
+Execution halted
