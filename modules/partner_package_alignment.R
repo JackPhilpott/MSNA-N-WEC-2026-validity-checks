@@ -157,5 +157,42 @@ run_partner_package_alignment_checks <- function(log) {
   log <- check_result(log, "partner_package_alignment", "Fully-achieved IDP clusters have no lingering KML placemark (2026-09-19 fix regression guard)",
                        fully_achieved_result$status, fully_achieved_result$detail, fully_achieved_result$count)
 
+  # ---- Cluster field guides (factsheets) for clusters that no longer exist
+  # ADDED 2026-09-23. The KML checks above cover the GPS points a partner
+  # loads into Maps.me, but each cluster also gets a printed/…docx field
+  # guide under <Partner>/<State>/<LGA>/<pop>/Cluster_guide/, and nothing
+  # checked those against the frame at all. Found live the same night: after
+  # 8 Nganzai clusters were retired from the frame (Jack's MSNA Light
+  # decision - that LGA is collected LGA-level by government enumerators, so
+  # its georeferenced clusters were withdrawn), all 8 factsheets were still
+  # sitting in FACT's live Cluster_guide folder. A field team working from
+  # the printed guides would still have been sent to all 8.
+  #
+  # Scoped to "absent from FULL entirely", the same rule the PSU-geometry
+  # ghost check uses - a COMPLETE cluster stays in FULL and keeps its guide
+  # legitimately, so completion must not trip this. Anything already moved
+  # to an _archive/_archived_dropped_clusters_* folder is ignored: that's
+  # the project's existing convention for retiring a guide (3,847 factsheets
+  # were already archived that way when this check was written), so the fix
+  # for a hit here is to archive, not delete.
+  stale_guides <- tryCatch({
+    full_ids <- unique(read.csv(latest_frame_file("NGA_MSNA_2026_stage2_sampling_frame", "FULL"),
+                                 stringsAsFactors = FALSE)$cluster_id)
+    guides <- list.files(PKG_ROOT, pattern = "_factsheet\\.docx$", recursive = TRUE, full.names = TRUE)
+    guides <- guides[!grepl("_archive|archived", guides, ignore.case = TRUE)]
+    ids <- sub("_factsheet\\.docx$", "", basename(guides))
+    stale_idx <- which(!(ids %in% full_ids))
+    by_partner <- table(sub("^([^/\\\\]+).*$", "\\1", sub(paste0("^", gsub("([.|()\\^{}+$*?\\[\\]])", "\\\\\\1", PKG_ROOT), "[/\\\\]"), "", guides[stale_idx])))
+    list(status = if (length(stale_idx) == 0) "PASS" else "FAIL",
+         detail = sprintf("%d of %d live cluster field guide(s) are for a cluster absent from the FULL frame%s - a retired cluster's guide left in place still sends a field team there. Archive them (move to an _archived_dropped_clusters_<date>/ folder, the existing convention), don't delete",
+                          length(stale_idx), length(guides),
+                          if (length(stale_idx) == 0) "" else paste0(": ", paste(sprintf("%s %d", names(by_partner), as.integer(by_partner)), collapse = ", "),
+                                                                      " - e.g. ", paste(head(sort(ids[stale_idx]), 4), collapse = ", "))),
+         count = length(stale_idx))
+  }, error = function(e) list(status = "FAIL", detail = sprintf("check errored: %s", conditionMessage(e)), count = NA))
+  log <- check_result(log, "partner_package_alignment",
+                       "No live cluster field guide (factsheet) exists for a cluster the frame no longer contains",
+                       stale_guides$status, stale_guides$detail, stale_guides$count)
+
   log
 }

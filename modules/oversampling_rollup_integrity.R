@@ -115,7 +115,7 @@ run_oversampling_rollup_integrity_checks <- function(log) {
   }
   log <- check_result(log, "oversampling_rollup_integrity", "No overlay-excluded cluster (accessibility overlay / Task-5 drop) appears on any partner's 'Available to Collect' sheet",
                        if (leaked_total == 0 && length(no_sheet) == 0) "PASS" else "FAIL",
-                       sprintf("%d overlay-excluded cluster(s) listed as collectable across partners (%s)%s - the daily-tier workbook script has no overlay loaders (2026-09-19 fix landed in build_partner_dc_packages.py only); a nonzero count means a workbook was last written by that tier, or the loaders drifted",
+                       sprintf("%d overlay-excluded cluster(s) listed as collectable across partners (%s)%s - both workbook tiers apply the exclusion via scripts/shared/cluster_exclusions.py since 2026-09-21 (08fa533; before that the daily tier had no loaders), so a nonzero count means that partner's workbook hasn't been rebuilt since the overlay or drop list last changed (e.g. packages deferred after an accessibility merge), or the shared rule drifted",
                                leaked_total, if (length(leaked_by_partner) == 0) "none" else paste(leaked_by_partner, collapse = ", "),
                                if (length(no_sheet) == 0) "" else sprintf("; %d workbook(s) with no readable Available to Collect sheet: %s", length(no_sheet), paste(no_sheet, collapse = ", "))),
                        leaked_total)

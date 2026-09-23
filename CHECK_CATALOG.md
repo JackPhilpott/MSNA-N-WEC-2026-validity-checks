@@ -62,6 +62,7 @@ automatable the same way, listed for completeness.
 | Stale partner/LGA folder detection (partner no longer assigned still has a live folder) | **[LIVE]** |
 | MSNA Light never leaks into a partner's normal deliverable sheets/KML folder | **[LIVE]** |
 | Fully-achieved IDP clusters have no lingering KML placemark | **[LIVE]** (regression guard for the 2026-09-19 fix) — found 7 live instances on first run (2026-09-20), see run log; resolves automatically on the next full partner-package rebuild |
+| No live cluster field guide (factsheet) exists for a cluster the frame no longer contains — the KML checks never covered the printed `Cluster_guide/*.docx` guides at all; found 8 live guides for retired Nganzai clusters the night MSNA Light was resolved, i.e. a field team working from print would still have been sent to all 8. Completion doesn't trip it (a Complete cluster stays in FULL); already-archived guides are ignored, since archiving is the existing retirement convention | **[LIVE]** (2026-09-23) |
 
 ## Module: `cross_repo_propagation_freshness`
 | Check | Status |
@@ -70,6 +71,7 @@ automatable the same way, listed for completeness.
 | `_frame_version.txt` is current in both locations (not just self-reported) | **[LIVE]** |
 | `real_submissions.csv`: canonical path used, not the bundled dashboard mirror, in every consumer script | **[LIVE]** |
 | Known duplicate-input directories checked for currency (`dashboard_app/input_data/accessibility/` vs `input_data/accessibility/`, etc.) | **[LIVE]** |
+| `real_submissions.csv` `deletion_status` matches the current `FLAGGED_DELETIONS_OVERLAY.csv` uuid by uuid — the dashboard's deletion basis is a copy joined in by `prep_real_submissions.R`, which `deploy_dashboard.R` runs BEFORE the independent checks and the overlay rebuild, so every run's new confirmations reach the partner workbooks/resampling (overlay readers) but not the dashboard until the next run (found 2026-09-22: 110 confirmed deletions still counted as Achieved on the dashboard only) | **[LIVE]** (2026-09-22) — FAILS until the order is fixed or prep is rerun |
 
 ## Module: `dashboard_deletion_identity` (2_monitoring)
 | Check | Status |
@@ -102,9 +104,30 @@ Regression guard for the rollup bug Jack caught 2026-09-21: after Achieved went 
 - Informational: partners whose raw Achieved ≥ target while strata are still short — the exact case the old headline hid.
 - Dashboard twin (in `dashboard_deletion_identity`, which already sources global.R): `compute_progress_by_stratum()` exposes `credited_achieved_n`/`remaining_n`; per-stratum identity holds; `partner_progress_summary$remaining_n` matches an independent floor-then-sum recompute; same informational masked-partner count.
 
+## Module: `resample_round_landing` (1_sampling) — added 2026-09-21
+
+Acceptance test for Jack's decision to "make each round land the first time". Nightly redraws kept recurring because 05 sizes a top-up as N full clusters of 6 households while the draw judged hex accessibility by centroid only: on 2026-09-21, 57 of 262 Non-IDP clusters drawn came in under 6 accessible primaries and 31 fell below the 4-primary floor (2/3 ward straddle, 1/3 thin hexes), so strata landed short and needed another round. Evaluates the latest round: every partner's batch folder sharing the newest batch's folder label (time windows can't separate rounds — on 2026-09-21 one round's staging spanned ~4 h while the next two were 48 min apart).
+
+- Every stratum drawn into is closed/negligible or honestly pool-exhausted on the post-merge 05 rebuild — none left "RECOVERABLE" (WARN, not FAIL, if 05 hasn't been rebuilt since the merge).
+- No Non-IDP cluster in the round lands below the 4-accessible-primary floor (split ward straddle vs thin hex in the detail).
+- Informational: clusters delivering 4–5 accessible primaries instead of 6.
+
+Expected to FAIL until BOTH halves land: (1) the draw judges hexes on their households' wards with a 6-building floor — built and dry-run tested by Resampling 2026-09-21 (19/19 full vs 11/21 on HEAD), not yet used in a live round; (2) `analysis_remaining_eligible_pool.R` building-validates the pool 05 labels against — follow-up, not built. Until (2), strata whose validated pool is empty (on 2026-09-21: Kala/Balge, Ngala, Nganzai) stay labelled "RECOVERABLE" and this check keeps failing on them; that is a true, donor-facing defect in the label, not noise.
+
 ## Not yet covered by any module (flagged, not silently dropped)
 - Draw-pipeline code robustness (empty-building-result handling, etc.) — these are code-path unit tests, not data-state checks; better suited to the pipeline's own test suite than a data sanity sweep.
 - Methodology-doc-vs-data narrative consistency (state lists, boosted-strata tables) — low recurrence risk, manual spot-check territory.
 - Most `[PROCESS]`-tagged items from the raw mining pass (e.g. "verify a claimed fact's provenance before trusting it," "confirm an approved plan was actually executed") — these are working-discipline habits for whoever's doing the work, not something a script checks.
 
 **Total**: 45 standing checks curated from the raw catalog. **44 LIVE, 1 silenced (achieved>target ceiling, per Jack 2026-09-19/20), 0 PLANNED** as of the 2026-09-20 build-out — every check originally scoped in this catalog has now been implemented. 3 HISTORICAL items remain deliberately unbuilt (regression risks only, not standing checks). First full run after completion: 38 PASS / 3 WARN / 3 FAIL (of 44 live checks) — see `run_history/run_2026-09-20_002221.csv` and the Coordinator's own findings summary for detail on each non-PASS result.
+
+## Module: `gis_layer_currency` (cross-repo)
+Added 2026-09-22 at Jack's request: the dashboard's map layers are frame-DERIVED, so nothing about them self-corrects when the frame moves (2026-09-02: ~375 newly-drawn clusters completely absent from the PSU geometry; 2026-09-07: a stale accessibility shapefile let clusters be drawn into known-inaccessible wards). Content-based first, mtime only as a secondary ordering signal.
+| Check | Status |
+|---|---|
+| Every active (WORKING) cluster the map should draw has geometry in psu_hexagons/psu_sites — MSNA Light clusters explicitly exempted (LGA-level, no georeferencing) and counted separately, never silently filtered | **[LIVE]** |
+| MSNA Light clusters carry no geometry (informational; nonzero would mean Light became georeferenced or an id collided) | **[LIVE]** |
+| No geometry for a cluster the FULL frame no longer contains — the "dropped cluster still drawn as a live target" direction | **[LIVE]** |
+| Geometry for clusters in a no-longer-covered stratum (informational — legitimately still drawn per the 2026-09-14 rule, but must never count toward a rollup) | **[LIVE]** |
+| Frame-derived layers (PSU geometry, accessibility portions) not older than the frame they describe | **[LIVE]** (WARN, not FAIL — content checks above are authoritative) |
+| Every GIS layer mirrored into `dashboard_app/` at the same size — that bundle is all the deployed app can see | **[LIVE]** |

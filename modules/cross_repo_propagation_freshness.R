@@ -108,5 +108,42 @@ run_cross_repo_propagation_freshness_checks <- function(log) {
   log <- check_result(log, "cross_repo_propagation_freshness", "2_monitoring's duplicate accessibility-mirror directories are byte-size-identical (input_data/accessibility/ vs dashboard_app/input_data/accessibility/)",
                        acc_status, acc_detail, acc_count)
 
+  # ---- Deletion-basis freshness (2026-09-22, Coordinator's cross-format
+  # sweep): real_submissions.csv's deletion_status is a COPY of
+  # FLAGGED_DELETIONS_OVERLAY.csv's status, joined in by
+  # prep_real_submissions.R. deploy_dashboard.R runs prep FIRST, then
+  # independent_deletion_checks.R registers + auto-confirms new tracker
+  # issues, then rebuilds the overlays - so each run's new confirmations and
+  # flags reach the overlays (read directly by the partner workbooks and
+  # resampling) but not the copy the dashboard's is_achieved() reads, until
+  # the NEXT run's prep. Found 2026-09-22: 110 completed interviews
+  # confirmed as deletions on 2026-09-21 (99 duration_under_20, 11
+  # duplicate_point) still counted as Achieved on the dashboard only, across
+  # 25 strata. Compares the copy against its source uuid by uuid, with the
+  # same first-row-per-uuid rule prep uses (distinct(uuid, .keep_all=TRUE)). -------
+  rs_path <- file.path(MONITORING_ROOT, "data/real_submissions.csv")
+  fl_path <- file.path(MONITORING_ROOT, "data/FLAGGED_DELETIONS_OVERLAY.csv")
+  del_status <- "FAIL"; del_detail <- "real_submissions.csv or FLAGGED_DELETIONS_OVERLAY.csv not found"; del_count <- NA
+  if (file.exists(rs_path) && file.exists(fl_path)) {
+    rs <- read.csv(rs_path, stringsAsFactors = FALSE, na.strings = c("", "NA"))[, c("submission_uuid", "interview_outcome", "deletion_status")]
+    fl <- read.csv(fl_path, stringsAsFactors = FALSE, na.strings = c("", "NA"))
+    fl <- fl[!duplicated(fl$uuid), c("uuid", "status")]
+    src <- fl$status[match(rs$submission_uuid, fl$uuid)]
+    copy <- rs$deletion_status
+    differs <- xor(is.na(copy), is.na(src)) | (!is.na(copy) & !is.na(src) & copy != src)
+    settled <- c("confirmed", "contested")
+    # the subset that moves the dashboard's Achieved: a completed interview
+    # the source now calls settled but the copy doesn't (or vice versa)
+    moves_achieved <- differs & rs$interview_outcome == "completed" &
+      ((!is.na(src) & src %in% settled) != (!is.na(copy) & copy %in% settled))
+    del_count <- sum(differs)
+    del_status <- if (del_count == 0) "PASS" else "FAIL"
+    del_detail <- sprintf(
+      "%d of %d real_submissions.csv row(s) carry a deletion_status that differs from FLAGGED_DELETIONS_OVERLAY.csv (overlay mtime %s, real_submissions mtime %s); %d of them are completed interviews whose settled/not-settled state differs, i.e. counted as Achieved on the dashboard but excluded in the partner workbooks/resampling, or the reverse. Nonzero = the copy is a pipeline run behind the tracker (deploy_dashboard.R builds the overlays AFTER prep_real_submissions.R) - rerun prep, or fix the order",
+      del_count, nrow(rs), format(file.info(fl_path)$mtime, "%Y-%m-%d %H:%M:%S"), format(file.info(rs_path)$mtime, "%Y-%m-%d %H:%M:%S"), sum(moves_achieved))
+  }
+  log <- check_result(log, "cross_repo_propagation_freshness", "real_submissions.csv deletion_status matches the current FLAGGED_DELETIONS_OVERLAY.csv, uuid by uuid (dashboard deletion basis not a run behind the tracker)",
+                       del_status, del_detail, del_count)
+
   log
 }

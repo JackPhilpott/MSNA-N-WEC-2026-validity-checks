@@ -20,7 +20,11 @@ run_duplicate_and_id_integrity_checks <- function(log) {
   partner_dirs <- list.dirs(runs_root, recursive = FALSE)
   partner_dirs <- partner_dirs[!grepl("^_", basename(partner_dirs))]
   batch_dirs <- unlist(lapply(partner_dirs, function(pd) list.dirs(pd, recursive = FALSE)))
-  batch_dirs <- batch_dirs[!grepl("[/\\\\]_archive[/\\\\]", batch_dirs)]
+  # basename prefix match, same as partner_dirs above (FIXED 2026-09-21: was
+  # "[/\\]_archive[/\\]", which can never match a direct child's path - no
+  # trailing separator - so it excluded nothing; latent, no "_" batch
+  # folder existed when found)
+  batch_dirs <- batch_dirs[!grepl("^_", basename(batch_dirs))]
 
   if (length(batch_dirs) == 0) {
     log <- check_result(log, "duplicate_and_id_integrity", "New-cluster new_clusters/new_households row-set equality (most recent batch)",

@@ -1,0 +1,9 @@
+"module","name","status","detail","count"
+"frame_integrity","Zero duplicate survey_ids (FULL)","PASS","0 duplicate survey_id rows in FULL (NGA_MSNA_2026_stage2_sampling_frame_v11_FULL.csv)",0
+"frame_integrity","Zero duplicate survey_ids (WORKING)","PASS","0 duplicate survey_id rows in WORKING (NGA_MSNA_2026_stage2_sampling_frame_v11_WORKING.csv)",0
+"frame_integrity","No literal 'NA' string in ward_accessible_status (FULL)","PASS","0 rows with the literal text ""NA"" instead of a real value or true blank - signature of a skipped stamping step (2026-09-08h incident)",0
+"frame_integrity","Every WORKING survey_id exists in FULL","PASS","0 WORKING rows have a survey_id absent from FULL entirely (WORKING should always be a filtered subset of FULL)",0
+"frame_integrity","target_sample = clusters_target_stage1*m_used (PPS) or achieved_clusters*m_used (certainty)","PASS","0 of 571 strata have target_sample not matching this formula (never sum(target_households) directly - the 2026-07-15 double-counting bug this guards against)",0
+"frame_integrity","Strata-level FULL achieved_sample equals the real primary-row count in household-level FULL","PASS","0 of 571 strata have achieved_sample disagreeing with a direct count of primary rows for that strata_id in household-level FULL",0
+"frame_integrity","m_used never shows a value outside the current boost mechanism (currently: always 6)","PASS","distinct m_used values found: 6 (only 6 is expected under the current, post-2026-07-22 design - any other value means a superseded or new boost mechanism is active and needs explaining)",0
+"frame_integrity","target_households/reserve_households present and non-null across all rows (Non-IDP draw, reallocation, IDP)","PASS","0 rows with a null/blank target_households, 0 with null/blank reserve_households, across household-level FULL (should never happen post-2026-08-04 reserve-scaling fix, any pop_type/status/path)",0

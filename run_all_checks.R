@@ -23,7 +23,9 @@ ALL_MODULES <- list(
   cross_repo_propagation_freshness = list(file = "modules/cross_repo_propagation_freshness.R", fn = "run_cross_repo_propagation_freshness_checks", repo = "cross-repo"),
   dashboard_deletion_identity = list(file = "modules/dashboard_deletion_identity.R", fn = "run_dashboard_deletion_identity_checks", repo = "2_monitoring, SLOW (~1 min, sources the whole dashboard)"),
   duplicate_and_id_integrity = list(file = "modules/duplicate_and_id_integrity.R", fn = "run_duplicate_and_id_integrity_checks", repo = "1_sampling"),
-  oversampling_rollup_integrity = list(file = "modules/oversampling_rollup_integrity.R", fn = "run_oversampling_rollup_integrity_checks", repo = "cross-repo (partner workbooks; dashboard twin lives in dashboard_deletion_identity)")
+  oversampling_rollup_integrity = list(file = "modules/oversampling_rollup_integrity.R", fn = "run_oversampling_rollup_integrity_checks", repo = "cross-repo (partner workbooks; dashboard twin lives in dashboard_deletion_identity)"),
+  resample_round_landing = list(file = "modules/resample_round_landing.R", fn = "run_resample_round_landing_checks", repo = "1_sampling"),
+  gis_layer_currency = list(file = "modules/gis_layer_currency.R", fn = "run_gis_layer_currency_checks", repo = "cross-repo (map layers vs frame)")
 )
 
 args <- commandArgs(trailingOnly = TRUE)
