@@ -114,6 +114,18 @@ Acceptance test for Jack's decision to "make each round land the first time". Ni
 
 Expected to FAIL until BOTH halves land: (1) the draw judges hexes on their households' wards with a 6-building floor — built and dry-run tested by Resampling 2026-09-21 (19/19 full vs 11/21 on HEAD), not yet used in a live round; (2) `analysis_remaining_eligible_pool.R` building-validates the pool 05 labels against — follow-up, not built. Until (2), strata whose validated pool is empty (on 2026-09-21: Kala/Balge, Ngala, Nganzai) stay labelled "RECOVERABLE" and this check keeps failing on them; that is a true, donor-facing defect in the label, not noise.
 
+## Module: `coverage_assignment_complete` (cross-repo) — added 2026-09-25
+
+Jack's rule: ANY LGA or point without a partner is flagged for immediate resolution — never a quiet "Other" / "Not partner-assigned" label. Two flagged states, defined once in `2_monitoring/scripts/shared/coverage_state.R` (this module sources it): **UNASSIGNED** = the frame calls an LGA covered but no partner owns it (no `partner_lga_assignment.csv` row, or a covered stratum with blank `partners_covering`); **UNRESOLVED** = the frame calls an LGA not covered (`partner_coverage_declined`) and `2_monitoring/config/coverage_decisions.csv` (hand-kept, tracked in git; only `decision = accepted_not_covered` clears anything) holds no valid decision for it. LGAs whose every stratum is `excluded` are not flagged — the frame's `exclusion_reason` already documents that decision. Recomputed here from the canonical sources, independent of the state file the dashboard reads.
+| Check | Status |
+|---|---|
+| Every LGA the frame calls covered has a partner (none UNASSIGNED) | **[LIVE]** |
+| Every LGA the frame calls not-covered has a recorded decision (none UNRESOLVED) | **[LIVE]** — FAILs by design until the decision record is seeded (Marte, Borno, is the one LGA that needs an actual decision) |
+| Decision record is well-formed; every row still refers to a not-covered LGA/state | **[LIVE]** (invalid row = FAIL; orphan/superseded row = WARN, housekeeping) |
+| `coverage_state_by_lga.csv` in `2_monitoring/input_data` and in the `dashboard_app` mirror equals an independent recompute | **[LIVE]** (input_data FAIL, mirror WARN — the mirror refreshes at the next bundle) |
+| Every collector `org_id` in `real_submissions.csv` is a registered partner (assignment ∪ `2_monitoring/config/partner_registry.csv`) — a partner whose LGAs are all reassigned (ACF → ZOA) holds no assignment row and must not turn into an "unknown collector" | **[LIVE]** |
+| `partner_registry.csv` (the derived copy the dashboard reads) in `input_data` and in the mirror equals a recompute | **[LIVE]** (input_data FAIL, mirror WARN) |
+
 ## Not yet covered by any module (flagged, not silently dropped)
 - Draw-pipeline code robustness (empty-building-result handling, etc.) — these are code-path unit tests, not data-state checks; better suited to the pipeline's own test suite than a data sanity sweep.
 - Methodology-doc-vs-data narrative consistency (state lists, boosted-strata tables) — low recurrence risk, manual spot-check territory.

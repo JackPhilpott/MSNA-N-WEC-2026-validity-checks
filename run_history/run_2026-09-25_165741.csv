@@ -1,0 +1,9 @@
+"module","name","status","detail","count"
+"coverage_assignment_complete","Every LGA the frame calls covered has a partner (none UNASSIGNED)","PASS","all 167 covered LGAs have a row in partner_lga_assignment.csv and a partners_covering value on every covered stratum",0
+"coverage_assignment_complete","Every LGA the frame calls not-covered has a recorded decision (none UNRESOLVED)","PASS","147 not-covered LGA(s), all documented in config/coverage_decisions.csv (60 valid decision row(s))",0
+"coverage_assignment_complete","Decision record is well-formed, and every row still refers to a not-covered LGA/state","PASS","60 decision row(s), all valid and all still current",0
+"coverage_assignment_complete","coverage_state_by_lga.csv (input_data) matches an independent recompute","PASS","323 LGAs, flags identical to an independent recompute",0
+"coverage_assignment_complete","coverage_state_by_lga.csv (dashboard_app mirror) matches an independent recompute","WARN","c:/Users/JackPHILPOTT/ACTED/IMPACT NGA - 02. MSNA/4. Data/MSNA N-WEC 2026/2_monitoring/dashboard_app/input_data/partner_coverage/coverage_state_by_lga.csv not found - run refresh_coverage_state() (scripts/shared/coverage_state.R)",NA
+"coverage_assignment_complete","Every submission's collector is a registered partner","PASS","all 19 collector org_ids in real_submissions.csv are registered (18 with LGAs, 1 with none)",0
+"coverage_assignment_complete","partner_registry.csv (input_data) matches a recompute","PASS","19 partners, identical to a recompute",0
+"coverage_assignment_complete","partner_registry.csv (dashboard_app mirror) matches a recompute","WARN","c:/Users/JackPHILPOTT/ACTED/IMPACT NGA - 02. MSNA/4. Data/MSNA N-WEC 2026/2_monitoring/dashboard_app/input_data/partner_coverage/partner_registry.csv not found - run refresh_partner_registry()",NA

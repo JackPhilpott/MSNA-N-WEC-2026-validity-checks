@@ -20,11 +20,16 @@ parse_kml_ids <- function(path) {
 run_partner_package_alignment_checks <- function(log) {
   full <- read_csv(latest_frame_file("NGA_MSNA_2026_stage2_sampling_frame", "FULL"), show_col_types = FALSE, col_types = cols(.default = "c"))
   working_ids <- read_csv(latest_frame_file("NGA_MSNA_2026_stage2_sampling_frame", "WORKING"), show_col_types = FALSE, col_types = cols(.default = "c"))$survey_id
-  subs <- read_csv(file.path(MONITORING_ROOT, "data/real_submissions.csv"), show_col_types = FALSE)
-  subs <- subs %>% mutate(is_achieved_old = interview_outcome == "completed" & !is_duplicate &
-                             !is.na(matched_survey_id) & is.na(deletion_status))
-  achieved_survey_ids <- unique(subs$matched_survey_id[subs$is_achieved_old])
-  achieved_cluster_ids <- unique(subs$matched_cluster_id[subs$is_achieved_old & subs$pop_type == "idp"])
+  # Canonical achieved definition (only confirmed/contested deletions exclude; a pending
+  # duplicate flag does not), same source the frame and check 2 below use. The prior inline
+  # rule (!is_duplicate & is.na(deletion_status)) was stricter and flagged every re-collection
+  # awaiting a duplicate ruling as a "stale" KML point (8 FACT points, 2026-09-24).
+  subs_c <- read_csv(file.path(MONITORING_ROOT, "data/real_submissions.csv"), show_col_types = FALSE, col_types = cols(.default = "c"))
+  overlay_c <- read_csv(file.path(MONITORING_ROOT, "data/CONFIRMED_DELETIONS_OVERLAY.csv"), show_col_types = FALSE, col_types = cols(.default = "c"))
+  source(file.path(SAMPLING_ROOT, "scripts/shared/frame_status.R"), local = (fs_env_c <- new.env()))
+  achieved_c <- fs_env_c$compute_achieved_lookup(subs_c, overlay_c)
+  achieved_survey_ids <- achieved_c$non_idp_survey_ids
+  achieved_cluster_ids <- unique(achieved_c$idp_counts$matched_cluster_id)
 
   full2 <- full %>%
     mutate(row_achieved = case_when(

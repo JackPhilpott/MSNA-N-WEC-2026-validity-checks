@@ -220,13 +220,25 @@ run_partner_coverage_alignment_checks <- function(log) {
     if (length(start) == 1) {
       end <- start + which(grepl("^\\)", gr[start:(start + 15)]))[1] - 1
       block <- paste(gr[start:end], collapse = " ")
-      org_keys <- stringr::str_match_all(block, '"([^"]+)"\\s*=')[[1]][, 2]
+      pairs <- stringr::str_match_all(block, '"([^"]+)"\\s*=\\s*"([^"]+)"')[[1]]
+      org_keys <- pairs[, 2]
+      # A partner registered with ZERO LGAs (ACF, once its five LGAs moved to ZOA on 2026-09-25) is
+      # legitimately in the lookup but absent from the frame: it stays a valid collector. Only names
+      # whose org_id 2_monitoring's derived partner registry lists with n_lgas == 0 are excused.
+      reg_path <- file.path(MONITORING_ROOT, "input_data/partner_coverage/partner_registry.csv")
+      zero_lga_orgs <- character(0)
+      if (file.exists(reg_path)) {
+        reg <- read_csv(reg_path, show_col_types = FALSE, col_types = cols(.default = "c"))
+        zero_lga_orgs <- reg$org_id[reg$n_lgas == "0"]
+      }
+      expected_lookup_only <- pairs[pairs[, 3] %in% zero_lga_orgs, 2]
       only_in_frame <- setdiff(frame_partner_names, org_keys)
-      only_in_org_lookup <- setdiff(org_keys, frame_partner_names)
+      only_in_org_lookup <- setdiff(setdiff(org_keys, frame_partner_names), expected_lookup_only)
       total_diff <- length(only_in_frame) + length(only_in_org_lookup)
       name_scan_status <- if (total_diff == 0) "PASS" else "FAIL"
-      name_scan_detail <- sprintf("%d partner name(s) differ (byte-for-byte) between the frame's partners_covering spellings and 2_monitoring's ACCESSIBILITY_PARTNER_TO_ORG keys - frame-only: %s; lookup-only: %s (the 2026-08-27 Solidarités incident was exactly this kind of silent, case-insensitive-passing mismatch)",
-                                   total_diff, paste(only_in_frame, collapse = ", "), paste(only_in_org_lookup, collapse = ", "))
+      name_scan_detail <- sprintf("%d partner name(s) differ (byte-for-byte) between the frame's partners_covering spellings and 2_monitoring's ACCESSIBILITY_PARTNER_TO_ORG keys - frame-only: %s; lookup-only: %s (the 2026-08-27 Solidarités incident was exactly this kind of silent, case-insensitive-passing mismatch)%s",
+                                   total_diff, paste(only_in_frame, collapse = ", "), paste(only_in_org_lookup, collapse = ", "),
+                                   if (length(expected_lookup_only)) sprintf("; %d registered zero-LGA partner(s) expected lookup-only and not counted: %s", length(expected_lookup_only), paste(expected_lookup_only, collapse = ", ")) else "")
       name_scan_count <- total_diff
     }
   }
