@@ -26,7 +26,8 @@ ALL_MODULES <- list(
   oversampling_rollup_integrity = list(file = "modules/oversampling_rollup_integrity.R", fn = "run_oversampling_rollup_integrity_checks", repo = "cross-repo (partner workbooks; dashboard twin lives in dashboard_deletion_identity)"),
   resample_round_landing = list(file = "modules/resample_round_landing.R", fn = "run_resample_round_landing_checks", repo = "1_sampling"),
   gis_layer_currency = list(file = "modules/gis_layer_currency.R", fn = "run_gis_layer_currency_checks", repo = "cross-repo (map layers vs frame)"),
-  coverage_assignment_complete = list(file = "modules/coverage_assignment_complete.R", fn = "run_coverage_assignment_complete_checks", repo = "cross-repo (frame vs 2_monitoring assignment + decision record)")
+  coverage_assignment_complete = list(file = "modules/coverage_assignment_complete.R", fn = "run_coverage_assignment_complete_checks", repo = "cross-repo (frame vs 2_monitoring assignment + decision record)"),
+  three_way_reconciliation = list(file = "modules/three_way_reconciliation.R", fn = "run_three_way_reconciliation_checks", repo = "cross-repo, SLOW (~1 min, sources the whole dashboard): dashboard vs canonical vs partner workbooks, per stratum")
 )
 
 args <- commandArgs(trailingOnly = TRUE)

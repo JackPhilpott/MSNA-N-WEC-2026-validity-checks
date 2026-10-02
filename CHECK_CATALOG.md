@@ -143,3 +143,24 @@ Added 2026-09-22 at Jack's request: the dashboard's map layers are frame-DERIVED
 | Geometry for clusters in a no-longer-covered stratum (informational — legitimately still drawn per the 2026-09-14 rule, but must never count toward a rollup) | **[LIVE]** |
 | Frame-derived layers (PSU geometry, accessibility portions) not older than the frame they describe | **[LIVE]** (WARN, not FAIL — content checks above are authoritative) |
 | Every GIS layer mirrored into `dashboard_app/` at the same size — that bundle is all the deployed app can see | **[LIVE]** |
+
+## Module: `three_way_reconciliation` (cross-repo) — added 2026-10-02
+Added for the Round 1 submission (Jack: "ensure the numbers correspond between dashboard, main frames and partner folders"). Compares, stratum by stratum:
+1. the dashboard's own `compute_progress_by_stratum()`, from sourcing `2_monitoring/dashboard_app/global.R`;
+2. a canonical recompute from `real_submissions.csv` plus `CONFIRMED_DELETIONS_OVERLAY.csv`;
+3. every partner workbook's Strata Summary sheet.
+
+| Check | Status |
+|---|---|
+| Every interview the dashboard counts as Achieved nationally sits in a stratum row (no orphan achieved interviews) | **[LIVE]** |
+| `dashboard_app/data/real_submissions.csv` (what the deployed app reads) is byte-identical to `data/real_submissions.csv` | **[LIVE]** — fails between a data refresh and the next deploy, by construction |
+| `real_submissions.csv` holds exactly the frozen Round 1 membership (`ROUND1_MEMBERSHIP.csv`; none extra, none missing) | **[LIVE]** |
+| Achieved per stratum: dashboard == canonical recompute | **[LIVE]** |
+| Every partner workbook was written after the current `real_submissions.csv` | **[LIVE]** — mtime-based. OneDrive can leave a rewritten file's old mtime in place (seen 2026-10-02), so a FAIL here with every content row below passing is a date artefact; confirm with the workbook's internal save time (docProps `dcterms:modified`). Move to a content signal: open follow-up |
+| Every partner Strata Summary row maps to a frame stratum (State / LGA / population type) | **[LIVE]** |
+| Partner workbooks == dashboard, every stratum row: Achieved / Target / Still Needed (three checks) | **[LIVE]** — the authoritative content test |
+| Each stratum appears in exactly one partner workbook | **[LIVE]** (informational; jointly covered LGAs legitimately appear twice) |
+
+**Staged builds.** Set the env var `MSNA_PKG_ROOT` to a staged partner-package folder. `partner_package_alignment`, `oversampling_rollup_integrity` and this module then check the staging folder instead of the live package tree (`paths_config.R`). This was used as the go-live gate on 2026-10-02.
+
+**Suite size as of 2026-10-02:** 85 checks across 13 modules.
