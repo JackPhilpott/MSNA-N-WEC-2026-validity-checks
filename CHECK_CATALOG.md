@@ -183,4 +183,25 @@ Added for the Round 1 submission (Jack: "ensure the numbers correspond between d
 - **Paths typed with backslashes.** `MSNA_PKG_ROOT` may be given in Windows form (backslashes, trailing slash). `paths_config.R` normalises it. One module built a regular expression from the path, so "\2026…" read as a back reference and crashed it; it now strips the root by position. Found in Resampling's staging dry run.
 - **Sandboxed workspaces.** `three_way_reconciliation` sources `2_monitoring/dashboard_app/global.R`, which reads `2_monitoring/data/real_meta.rds`. A sandbox copy of the workspace needs the top-level files of `2_monitoring/data/`, about 16 MB.
 
-**Suite size as of 2026-10-04:** 85 checks across 13 modules. One WORKING-mirror check is no longer expected under the allowlist; one completeness check was added. Live run 4 Oct 14:59: 81 PASS / 4 WARN / 0 FAIL, exit 0. The 4 WARNs are the long-standing explained ones.
+## Module: `spare_cluster_integrity` (cross-repo) — added 2026-10-04, part of `--gate`
+Spare (buffer) clusters for the data officer's week, with no resampling possible: drawn like any cluster and merged into FULL/WORKING, so interviews at them match. They are listed in a register (`1_sampling/resampling/output/buffer_cluster_register.csv`, mirrored to `2_monitoring/input_data/sampling_frame/`).
+
+Partners see them only on their own "Spare Clusters" sheet and in `spare_clusters.kml`, with placemarks labelled "SPARE - ". While unused they never count in targets or remaining.
+
+A spare is used once it has at least one achieved interview. From then on it is an ordinary cluster everywhere. **Inert until the register exists.** File, sheet and label names are constants at the top of the module.
+
+| Check | Status |
+|---|---|
+| No register yet → no spare files in partner packages either (unregistered spares would count as ordinary clusters) | **[LIVE]** |
+| Register has its required columns; 2_monitoring's copy is identical | **[LIVE]** |
+| Every registered spare is a FULL-frame cluster in the stated stratum, listed once | **[LIVE]** |
+| Every unused spare is on a "Spare Clusters" sheet and in a `spare_clusters.kml` | **[LIVE]** |
+| No unused spare appears on "Available to Collect" or in a primary/reserve KML | **[LIVE]** |
+| Every cluster listed as a spare is in the register | **[LIVE]** |
+| Used spares have moved to the normal lists (WARN between a data refresh and the next build) | **[LIVE]** |
+
+`partner_package_alignment` strips the "SPARE - " label when reading placemarks, so a spare (which is in WORKING) counts as present on a map rather than missing.
+
+Tested 4 Oct, in memory, against made-up spares including one broken case per rule: every rule catches its case, and a clean set gives no findings. On the live packages (no spares yet), the module returns its single inert PASS.
+
+**Suite size as of 2026-10-04:** 85 checks across 13 modules, plus `spare_cluster_integrity` (1 check while inert; 7 once spares exist). One WORKING-mirror check is no longer expected under the allowlist; one completeness check was added. Live run 4 Oct 14:59: 81 PASS / 4 WARN / 0 FAIL, exit 0. The 4 WARNs are the long-standing explained ones.

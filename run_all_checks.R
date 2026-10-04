@@ -12,7 +12,7 @@
 # See README.md for the intended day-to-day usage pattern, CHECK_CATALOG.md
 # for what each module actually checks and why.
 
-GATE_MODULES <- c("partner_package_alignment", "oversampling_rollup_integrity", "three_way_reconciliation")
+GATE_MODULES <- c("partner_package_alignment", "oversampling_rollup_integrity", "three_way_reconciliation", "spare_cluster_integrity")
 
 run_suite <- function(args) {
   if (!file.exists("check_helpers.R")) {
@@ -34,7 +34,8 @@ run_suite <- function(args) {
     resample_round_landing = list(file = "modules/resample_round_landing.R", fn = "run_resample_round_landing_checks", repo = "1_sampling"),
     gis_layer_currency = list(file = "modules/gis_layer_currency.R", fn = "run_gis_layer_currency_checks", repo = "cross-repo (map layers vs frame)"),
     coverage_assignment_complete = list(file = "modules/coverage_assignment_complete.R", fn = "run_coverage_assignment_complete_checks", repo = "cross-repo (frame vs 2_monitoring assignment + decision record)"),
-    three_way_reconciliation = list(file = "modules/three_way_reconciliation.R", fn = "run_three_way_reconciliation_checks", repo = "cross-repo, SLOW (~1 min, sources the whole dashboard): dashboard vs canonical vs partner workbooks, per stratum")
+    three_way_reconciliation = list(file = "modules/three_way_reconciliation.R", fn = "run_three_way_reconciliation_checks", repo = "cross-repo, SLOW (~1 min, sources the whole dashboard): dashboard vs canonical vs partner workbooks, per stratum"),
+    spare_cluster_integrity = list(file = "modules/spare_cluster_integrity.R", fn = "run_spare_cluster_integrity_checks", repo = "cross-repo (spare clusters: register vs frame vs partner packages; inert until spares exist)")
   )
 
   requested <- character(0); out_file <- NULL

@@ -14,6 +14,9 @@ parse_kml_ids <- function(path) {
   txt <- tryCatch(readLines(path, warn = FALSE, encoding = "UTF-8"), error = function(e) character(0))
   txt <- paste(txt, collapse = "\n")
   ids <- str_match_all(txt, "<name>([^<]+)</name>")[[1]][, 2]
+  # 2026-10-04: spare clusters' placemarks are labelled "SPARE - <id>"; strip the label so a spare (which is in
+  # WORKING) counts as present on a map instead of being flagged as missing (spare_cluster_integrity checks the rest)
+  ids <- trimws(sub("^SPARE - ", "", ids))
   unique(ids[ids != ""])
 }
 
