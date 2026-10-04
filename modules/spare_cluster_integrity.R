@@ -13,7 +13,9 @@ library(readr)
 library(readxl)
 library(stringr)
 
-SPARE_REGISTER_REL <- "resampling/output/buffer_cluster_register.csv"          # under 1_sampling/
+# Beside the frame (agreed 4 Oct): the daily update's archive/restore and the OneDrive conflict guard then cover the
+# register together with the frame, so a blocked run restores both at once.
+SPARE_REGISTER_REL <- "output/data/data_collection/buffer_cluster_register.csv"  # under 1_sampling/
 SPARE_MIRROR_REL <- "input_data/sampling_frame/buffer_cluster_register.csv"     # under 2_monitoring/
 SPARE_KML_FILE <- "spare_clusters.kml"
 SPARE_SHEET <- "Spare Clusters"

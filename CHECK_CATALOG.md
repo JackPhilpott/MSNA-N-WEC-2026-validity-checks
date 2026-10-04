@@ -184,7 +184,7 @@ Added for the Round 1 submission (Jack: "ensure the numbers correspond between d
 - **Sandboxed workspaces.** `three_way_reconciliation` sources `2_monitoring/dashboard_app/global.R`, which reads `2_monitoring/data/real_meta.rds`. A sandbox copy of the workspace needs the top-level files of `2_monitoring/data/`, about 16 MB.
 
 ## Module: `spare_cluster_integrity` (cross-repo) — added 2026-10-04, part of `--gate`
-Spare (buffer) clusters for the data officer's week, with no resampling possible: drawn like any cluster and merged into FULL/WORKING, so interviews at them match. They are listed in a register (`1_sampling/resampling/output/buffer_cluster_register.csv`, mirrored to `2_monitoring/input_data/sampling_frame/`).
+Spare (buffer) clusters for the data officer's week, with no resampling possible: drawn like any cluster and merged into FULL/WORKING, so interviews at them match. They are listed in a register beside the frame (`1_sampling/output/data/data_collection/buffer_cluster_register.csv`), so the daily update's archive/restore and the OneDrive guard cover it. It is mirrored to `2_monitoring/input_data/sampling_frame/` by `sync_sampling_frame_mirrors.R`.
 
 Partners see them only on their own "Spare Clusters" sheet and in `spare_clusters.kml`, with placemarks labelled "SPARE - ". While unused they never count in targets or remaining.
 
