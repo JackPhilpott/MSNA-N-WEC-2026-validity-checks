@@ -24,6 +24,9 @@ MONITORING_ROOT <- file.path(MSNA_WORKSPACE_DIR, "2_monitoring")
 # partner folder, so a rebuild can be validated before it is copied live (2026-10-02, first used for
 # Resampling's staged package rebuild the night before the Round 1 submission). Unset = live folder.
 PKG_ROOT <- Sys.getenv("MSNA_PKG_ROOT", unset = file.path(WORKSPACE_ROOT, "3. External coordination/NGA MSNA 2026 Package"))
+# forward slashes and no trailing slash, whatever form the env var was typed in (a hand-set Windows path with
+# backslashes crashed a module's path handling, 2026-10-04)
+PKG_ROOT <- sub("/+$", "", normalizePath(PKG_ROOT, winslash = "/", mustWork = FALSE))
 
 # The dashboard's deploy allowlist (2026-10-02): dashboard_app/ holds only the files the deployed app reads, rebuilt
 # from input_data/ and data/ at every deploy. Checks of dashboard_app/ copies use this list (cross_repo module).

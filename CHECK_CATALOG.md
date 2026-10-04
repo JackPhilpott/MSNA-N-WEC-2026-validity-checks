@@ -180,4 +180,7 @@ Added for the Round 1 submission (Jack: "ensure the numbers correspond between d
   - **Cumulative data:** the dashboard shows all data collected (Jack, 4 Oct). The membership check is now "every Round 1 submission is still present"; later submissions are reported, never failed.
   - **Workbook freshness:** the date check uses each workbook's own save time (docProps) instead of its file date, which OneDrive can leave behind (seen 2 Oct). It is a WARN only; the per-row Achieved / Target / Still Needed checks remain the FAIL-capable test.
 
+- **Paths typed with backslashes.** `MSNA_PKG_ROOT` may be given in Windows form (backslashes, trailing slash). `paths_config.R` normalises it. One module built a regular expression from the path, so "\2026…" read as a back reference and crashed it; it now strips the root by position. Found in Resampling's staging dry run.
+- **Sandboxed workspaces.** `three_way_reconciliation` sources `2_monitoring/dashboard_app/global.R`, which reads `2_monitoring/data/real_meta.rds`. A sandbox copy of the workspace needs the top-level files of `2_monitoring/data/`, about 16 MB.
+
 **Suite size as of 2026-10-04:** 85 checks across 13 modules. One WORKING-mirror check is no longer expected under the allowlist; one completeness check was added. Live run 4 Oct 14:59: 81 PASS / 4 WARN / 0 FAIL, exit 0. The 4 WARNs are the long-standing explained ones.

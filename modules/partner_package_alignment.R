@@ -199,7 +199,10 @@ run_partner_package_alignment_checks <- function(log) {
     guides <- guides[!grepl("_archive|archived", guides, ignore.case = TRUE)]
     ids <- sub("_factsheet\\.docx$", "", basename(guides))
     stale_idx <- which(!(ids %in% full_ids))
-    by_partner <- table(sub("^([^/\\\\]+).*$", "\\1", sub(paste0("^", gsub("([.|()\\^{}+$*?\\[\\]])", "\\\\\\1", PKG_ROOT), "[/\\\\]"), "", guides[stale_idx])))
+    # 2026-10-04: strip the root by position, not by a regex built from the path - a Windows path's backslashes
+    # ("\2026...") read as regex back references and crashed this module (found in Resampling's staging dry run)
+    rel_guides <- substring(gsub("\\\\", "/", guides[stale_idx]), nchar(gsub("\\\\", "/", PKG_ROOT)) + 2)
+    by_partner <- table(sub("/.*$", "", rel_guides))
     list(status = if (length(stale_idx) == 0) "PASS" else "FAIL",
          detail = sprintf("%d of %d live cluster field guide(s) are for a cluster absent from the FULL frame%s - a retired cluster's guide left in place still sends a field team there. Archive them (move to an _archived_dropped_clusters_<date>/ folder, the existing convention), don't delete",
                           length(stale_idx), length(guides),
