@@ -61,14 +61,18 @@ run_three_way_reconciliation_checks <- function(log) {
                       if (same_bundle) "identical" else "DIFFERENT - the deployed app is reading other submissions than every other consumer", as.integer(!same_bundle))
 
   # ---- Round 1 membership guard ----
+  # 2026-10-04 (Jack: the dashboard shows all data collected; Round 1 is an internal mechanism): submissions
+  # after Round 1 are expected from now on and are reported, not failed. What must hold is that no Round 1
+  # submission ever disappears, because the frozen Round 1 outputs (weights, representativity) are built on them.
   r1_path <- file.path(data_dir, "ROUND1_MEMBERSHIP.csv")
   if (file.exists(r1_path)) {
     r1 <- read.csv(r1_path, stringsAsFactors = FALSE, colClasses = "character")[[1]]
     extra <- setdiff(subs_c$submission_uuid, r1); missing <- setdiff(r1, subs_c$submission_uuid)
-    log <- check_result(log, mod, "real_submissions.csv holds exactly the frozen Round 1 membership (no extra, none missing)",
-                        if (length(extra) == 0 && length(missing) == 0) "PASS" else "FAIL",
-                        sprintf("%d rows vs %d Round 1 uuids: %d not in Round 1, %d Round 1 uuids missing", nrow(subs_c), length(r1), length(extra), length(missing)),
-                        length(extra) + length(missing))
+    log <- check_result(log, mod, "Every Round 1 submission is still in real_submissions.csv (later submissions are expected)",
+                        if (length(missing) == 0) "PASS" else "FAIL",
+                        sprintf("%d rows: %d of %d Round 1 uuids present, %d missing; %d later (post-Round 1) submission(s)",
+                                nrow(subs_c), length(r1) - length(missing), length(r1), length(missing), length(extra)),
+                        length(missing))
   }
 
   # ---- (1) vs (2): achieved per stratum ----
@@ -87,10 +91,19 @@ run_three_way_reconciliation_checks <- function(log) {
   partner_dirs <- setdiff(list.dirs(PKG_ROOT, recursive = FALSE, full.names = FALSE), "_communications")
   rows <- list(); stale <- character(0); unmapped <- character(0)
   newest_subs <- file.mtime(file.path(data_dir, "real_submissions.csv"))
+  # 2026-10-04: a workbook's own save time (docProps/core.xml), not its file date - OneDrive can leave a rewritten
+  # file's old date in place (seen 2 Oct). Still only a WARN: the per-row content checks below are the real test.
+  saved_at <- function(x) {
+    core <- tryCatch(paste(readLines(unz(x, "docProps/core.xml"), warn = FALSE), collapse = ""), error = function(e) "")
+    v <- regmatches(core, regexpr("(?<=<dcterms:modified)[^>]*>[^<]+", core, perl = TRUE))
+    t <- if (length(v)) as.POSIXct(sub("^[^>]*>", "", v), format = "%Y-%m-%dT%H:%M:%S", tz = "") else NA
+    if (is.na(t)) file.mtime(x) else t
+  }
   for (p in partner_dirs) {
     wb <- list.files(file.path(PKG_ROOT, p), pattern = "sampling_points_summary\\.xlsx$", full.names = TRUE)
     if (length(wb) == 0) next
-    if (file.mtime(wb[1]) < newest_subs) stale <- c(stale, sprintf("%s (%s)", p, format(file.mtime(wb[1]), "%d %b %H:%M")))
+    wb_saved <- saved_at(wb[1])
+    if (wb_saved < newest_subs - 60) stale <- c(stale, sprintf("%s (saved %s)", p, format(wb_saved, "%d %b %H:%M")))
     ss <- tryCatch(read_excel(wb[1], sheet = "Strata Summary"), error = function(e) NULL)
     if (is.null(ss)) next
     ss <- ss %>% transmute(partner = p, State = as.character(State), LGA = as.character(LGA), pop = as.character(`Population Type`),
@@ -101,9 +114,11 @@ run_three_way_reconciliation_checks <- function(log) {
     rows[[p]] <- m
   }
   wbt <- bind_rows(rows)
-  log <- check_result(log, mod, "Every partner workbook was written AFTER the current real_submissions.csv",
-                      if (length(stale) == 0) "PASS" else "FAIL",
-                      sprintf("%d stale workbook(s): %s", length(stale), if (length(stale) == 0) "none" else paste(stale, collapse = ", ")), length(stale))
+  log <- check_result(log, mod, "Every partner workbook was saved after the current real_submissions.csv (internal save time; informational)",
+                      if (length(stale) == 0) "PASS" else "WARN",
+                      sprintf("%d workbook(s) saved before the submissions file was last written: %s%s", length(stale), if (length(stale) == 0) "none" else paste(stale, collapse = ", "),
+                              if (length(stale) == 0) "" else " - fine if every per-row check below passes (same figures); otherwise refresh the workbooks"),
+                      length(stale))
   log <- check_result(log, mod, "Every partner Strata Summary row maps to a frame stratum (State/LGA/pop type)",
                       if (length(unmapped) == 0) "PASS" else "FAIL",
                       sprintf("%d unmapped: %s", length(unmapped), if (length(unmapped) == 0) "none" else paste(head(unmapped, 15), collapse = "; ")), length(unmapped))

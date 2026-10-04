@@ -10,19 +10,27 @@ run_cross_repo_propagation_freshness_checks <- function(log) {
   source_full <- latest_frame_file("NGA_MSNA_2026_stage2_sampling_frame", "FULL")
   source_working <- latest_frame_file("NGA_MSNA_2026_stage2_sampling_frame", "WORKING")
 
+  # input_data/ is 2_monitoring's mirror of record (sync_sampling_frame_mirrors.R writes it): missing or
+  # different = FAIL. 2026-10-04: dashboard_app/ is no longer a second mirror - since the 2 Oct allowlist, the
+  # bundler rebuilds it from input_data/ at every deploy with ONLY the files the app reads (the FULL frames,
+  # not WORKING). So a dashboard_app copy is checked only if the allowlist bundles it, and a copy that is
+  # missing or behind is a WARN: it is what the last deploy shipped, the next deploy refreshes it, and the
+  # deploy's own bundle check (check_dashboard_bundle) is the authority at deploy time.
   mirrors <- list(
-    list(label = "dashboard_app mirror (WORKING)", path = file.path(MONITORING_ROOT, "dashboard_app/input_data/sampling_frame", basename(source_working))),
-    list(label = "input_data mirror (WORKING)", path = file.path(MONITORING_ROOT, "input_data/sampling_frame", basename(source_working))),
-    list(label = "dashboard_app mirror (FULL)", path = file.path(MONITORING_ROOT, "dashboard_app/input_data/sampling_frame", basename(source_full))),
-    list(label = "input_data mirror (FULL)", path = file.path(MONITORING_ROOT, "input_data/sampling_frame", basename(source_full)))
+    list(label = "input_data mirror (WORKING)", path = file.path(MONITORING_ROOT, "input_data/sampling_frame", basename(source_working)), src = source_working, deployed = FALSE),
+    list(label = "input_data mirror (FULL)", path = file.path(MONITORING_ROOT, "input_data/sampling_frame", basename(source_full)), src = source_full, deployed = FALSE)
   )
-  source_paths <- list(source_working, source_working, source_full, source_full)
+  for (fr in list(list(tag = "WORKING", src = source_working), list(tag = "FULL", src = source_full))) {
+    rel <- file.path("input_data/sampling_frame", basename(fr$src))
+    if (is_bundled(rel)) mirrors <- c(mirrors, list(list(label = sprintf("deployed dashboard copy (%s)", fr$tag),
+                                                         path = file.path(MONITORING_ROOT, "dashboard_app", rel), src = fr$src, deployed = TRUE)))
+  }
 
-  for (i in seq_along(mirrors)) {
-    m <- mirrors[[i]]
-    src <- source_paths[[i]]
+  for (m in mirrors) {
+    src <- m$src
     if (!file.exists(m$path)) {
-      log <- check_result(log, "cross_repo_propagation_freshness", paste("Mirror exists:", m$label), "FAIL", sprintf("Expected mirror file not found: %s", m$path))
+      log <- check_result(log, "cross_repo_propagation_freshness", paste("Mirror exists:", m$label), if (m$deployed) "WARN" else "FAIL",
+                          sprintf("Expected file not found: %s%s", m$path, if (m$deployed) " - the next dashboard deploy bundles it" else ""))
       next
     }
     src_info <- file.info(src); mirror_info <- file.info(m$path)
@@ -37,13 +45,14 @@ run_cross_repo_propagation_freshness_checks <- function(log) {
     src_md5 <- unname(tools::md5sum(src)); mirror_md5 <- unname(tools::md5sum(m$path))
     same_content <- identical(src_md5, mirror_md5)
     older <- mirror_info$mtime < src_info$mtime
-    status <- if (same_content) "PASS" else "FAIL"
+    status <- if (same_content) "PASS" else if (m$deployed) "WARN" else "FAIL"
     log <- check_result(log, "cross_repo_propagation_freshness", paste("Freshness:", m$label),
                          status,
                          sprintf("source mtime=%s (%d bytes, md5 %s) vs mirror mtime=%s (%d bytes, md5 %s). %s",
                                  format(src_info$mtime), src_info$size, substr(src_md5, 1, 10),
                                  format(mirror_info$mtime), mirror_info$size, substr(mirror_md5, 1, 10),
-                                 if (!same_content) "MIRROR CONTENT DIFFERS from source - propagate now (2026-09-19 finding: dashboard mirrors sat 36+ hours behind after a fix)"
+                                 if (!same_content && m$deployed) "the deployed dashboard is one frame refresh behind - the next deploy brings it up to date"
+                                 else if (!same_content) "MIRROR CONTENT DIFFERS from source - propagate now (2026-09-19 finding: dashboard mirrors sat 36+ hours behind after a fix)"
                                  else if (older) "byte-identical, current (mirror mtime is older only because the source was rewritten with unchanged content)"
                                  else "byte-identical, current"))
   }
@@ -88,24 +97,28 @@ run_cross_repo_propagation_freshness_checks <- function(log) {
   # 2_monitoring's own accessibility mirror pair (dashboard_app/input_data/
   # accessibility/ vs input_data/accessibility/) - found stale once
   # (2026-08-27, harmless by luck) and never given a standing check. -------
+  # 2026-10-04: only the files the deploy allowlist bundles are expected in dashboard_app/ (the raw shapefile set
+  # and version stamps are deliberately not shipped); a bundled copy that is missing or behind is a WARN for the
+  # same reason as the frame copies above (the next deploy refreshes it; the bundle check guards the deploy itself).
   acc_dir_a <- file.path(MONITORING_ROOT, "input_data/accessibility")
   acc_dir_b <- file.path(MONITORING_ROOT, "dashboard_app/input_data/accessibility")
-  acc_status <- "FAIL"; acc_detail <- "one or both accessibility directories not found"; acc_count <- NA
-  if (dir.exists(acc_dir_a) && dir.exists(acc_dir_b)) {
+  acc_status <- "FAIL"; acc_detail <- "input_data/accessibility/ not found"; acc_count <- NA
+  if (dir.exists(acc_dir_a)) {
     files_a <- list.files(acc_dir_a, recursive = FALSE)
-    files_a <- files_a[!grepl("^_archive", files_a)]
+    files_a <- files_a[!grepl("^_archive", files_a) & vapply(files_a, function(fn) is_bundled(file.path("input_data/accessibility", fn)), logical(1))]
     mismatches <- character(0)
     for (fn in files_a) {
       pa <- file.path(acc_dir_a, fn); pb <- file.path(acc_dir_b, fn)
-      if (!file.exists(pb)) { mismatches <- c(mismatches, sprintf("%s (missing in dashboard_app mirror)", fn)); next }
-      if (file.info(pa)$size != file.info(pb)$size) mismatches <- c(mismatches, sprintf("%s (size differs)", fn))
+      if (!file.exists(pb)) { mismatches <- c(mismatches, sprintf("%s (not in the deployed copy yet)", fn)); next }
+      if (unname(tools::md5sum(pa)) != unname(tools::md5sum(pb))) mismatches <- c(mismatches, sprintf("%s (content differs)", fn))
     }
-    acc_status <- if (length(mismatches) == 0) "PASS" else "FAIL"
-    acc_detail <- sprintf("%d of %d files differ (by size) between input_data/accessibility/ and dashboard_app/input_data/accessibility/: %s",
-                           length(mismatches), length(files_a), paste(mismatches, collapse = ", "))
+    acc_status <- if (length(mismatches) == 0) "PASS" else "WARN"
+    acc_detail <- sprintf("%d of %d bundled accessibility file(s) differ between input_data/accessibility/ and the deployed copy in dashboard_app/%s%s",
+                           length(mismatches), length(files_a), if (length(mismatches)) ": " else "", paste(mismatches, collapse = ", "))
+    if (length(mismatches)) acc_detail <- paste0(acc_detail, " - the deployed dashboard is behind; the next deploy brings it up to date")
     acc_count <- length(mismatches)
   }
-  log <- check_result(log, "cross_repo_propagation_freshness", "2_monitoring's duplicate accessibility-mirror directories are byte-size-identical (input_data/accessibility/ vs dashboard_app/input_data/accessibility/)",
+  log <- check_result(log, "cross_repo_propagation_freshness", "Deployed dashboard's accessibility files equal input_data/accessibility/ (allowlisted files only)",
                        acc_status, acc_detail, acc_count)
 
   # ---- Deletion-basis freshness (2026-09-22, Coordinator's cross-format

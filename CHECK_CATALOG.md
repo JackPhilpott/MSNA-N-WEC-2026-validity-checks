@@ -164,3 +164,20 @@ Added for the Round 1 submission (Jack: "ensure the numbers correspond between d
 **Staged builds.** Set the env var `MSNA_PKG_ROOT` to a staged partner-package folder. `partner_package_alignment`, `oversampling_rollup_integrity` and this module then check the staging folder instead of the live package tree (`paths_config.R`). This was used as the go-live gate on 2026-10-02.
 
 **Suite size as of 2026-10-02:** 85 checks across 13 modules.
+
+## Changes 2026-10-04 (data officer's week; runs on any machine, no false failures)
+- **Portable.** The workspace comes from env var `MSNA_WORKSPACE` (the "MSNA N-WEC 2026" folder), or is found as this folder's parent. No user-specific path remains (`paths_config.R`).
+- **Command line.**
+  - `--gate` runs the 3 partner-package modules: the go-live gate for a staged build, with `MSNA_PKG_ROOT` set to the staging folder.
+  - `--out <csv>` also writes the result table.
+  - **Exit status:** 0 = no FAIL (WARNs allowed); 1 = at least one FAIL; 2 = the suite could not run.
+- **`partner_package_alignment`, new first check:** the checked folder must hold a workbook for every partner with assigned LGAs (count of `org_id` in `partner_lga_assignment.csv`). Every other package check passes vacuously on an empty or wrong folder; found by pointing the gate at an empty staging root.
+- **`dashboard_app/` copies** (`cross_repo_propagation_freshness`, `gis_layer_currency`):
+  - Since the 2 Oct allowlist, the bundler rebuilds `dashboard_app/` from `input_data/` at every deploy, with only the allowlisted files. So only allowlisted files are expected there (not the WORKING frame or the raw shapefile set).
+  - A deployed copy that is missing or behind is a WARN: the next deploy refreshes it, and `check_dashboard_bundle()` guards the deploy itself.
+  - `input_data/` is still the mirror of record: a mismatch there is still a FAIL.
+- **`three_way_reconciliation`:**
+  - **Cumulative data:** the dashboard shows all data collected (Jack, 4 Oct). The membership check is now "every Round 1 submission is still present"; later submissions are reported, never failed.
+  - **Workbook freshness:** the date check uses each workbook's own save time (docProps) instead of its file date, which OneDrive can leave behind (seen 2 Oct). It is a WARN only; the per-row Achieved / Target / Still Needed checks remain the FAIL-capable test.
+
+**Suite size as of 2026-10-04:** 85 checks across 13 modules. One WORKING-mirror check is no longer expected under the allowlist; one completeness check was added. Live run 4 Oct 14:59: 81 PASS / 4 WARN / 0 FAIL, exit 0. The 4 WARNs are the long-standing explained ones.

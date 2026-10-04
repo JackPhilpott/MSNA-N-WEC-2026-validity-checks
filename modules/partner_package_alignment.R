@@ -42,6 +42,18 @@ run_partner_package_alignment_checks <- function(log) {
 
   partner_dirs <- setdiff(list.dirs(PKG_ROOT, recursive = FALSE, full.names = FALSE), "_communications")
 
+  # 2026-10-04: completeness first. Every check below passes vacuously on an empty or wrong folder (found by
+  # pointing the gate at an empty staging root: all PASS), which would let the daily frame/partner update
+  # publish a broken build. The checked root must hold a workbook for every partner that has assigned LGAs.
+  assign_path <- file.path(MONITORING_ROOT, "input_data/partner_coverage/partner_lga_assignment.csv")
+  n_expected <- if (file.exists(assign_path)) length(unique(read_csv(assign_path, show_col_types = FALSE, col_types = cols(.default = "c"))$org_id)) else NA_integer_
+  n_with_wb <- sum(vapply(partner_dirs, function(p) length(list.files(file.path(PKG_ROOT, p), pattern = "sampling_points_summary\\.xlsx$")) > 0, logical(1)))
+  log <- check_result(log, "partner_package_alignment", "The checked package folder holds a workbook for every partner with assigned LGAs",
+                      if (!is.na(n_expected) && n_with_wb >= n_expected) "PASS" else "FAIL",
+                      sprintf("%d partner folder(s) with a sampling-points workbook in %s; %s partners have assigned LGAs (partner_lga_assignment.csv)",
+                              n_with_wb, PKG_ROOT, if (is.na(n_expected)) "UNKNOWN - assignment file missing -" else n_expected),
+                      if (is.na(n_expected)) NA else max(0, n_expected - n_with_wb))
+
   total_stale_kml <- 0; total_missing_kml <- 0; total_stale_folders <- 0
   worst_partner <- NA; worst_stale <- 0
 

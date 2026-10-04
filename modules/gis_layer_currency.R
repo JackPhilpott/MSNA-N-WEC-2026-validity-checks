@@ -141,22 +141,27 @@ run_gis_layer_currency_checks <- function(log) {
                                if (length(older) == 0) "" else paste0(": ", paste(basename(older), collapse = ", "))),
                        length(older))
 
-  # The app on shinyapps.io only ever sees dashboard_app/'s bundled copies.
+  # The app on shinyapps.io only ever sees dashboard_app/'s bundled copies. 2026-10-04: dashboard_app/ is rebuilt
+  # from input_data/ at every deploy with only the allowlisted files, and check_dashboard_bundle() stops a deploy
+  # whose bundle differs from its source - so between deploys a copy that is missing or behind is a WARN (the
+  # deployed map is one refresh behind until the next deploy), and only allowlisted layers are expected at all.
   mirrors <- c(hex_path, site_path, acc_path, ward_path, adm2_path)
   mirrors <- mirrors[file.exists(mirrors)]
+  rel_of <- function(p) substring(normalizePath(p, winslash = "/"), nchar(normalizePath(MONITORING_ROOT, winslash = "/")) + 2)
+  mirrors <- mirrors[vapply(mirrors, function(p) is_bundled(rel_of(p)), logical(1))]
   bad_mirror <- character(0)
   for (p in mirrors) {
-    rel <- sub(paste0("^", MONITORING_ROOT, "/"), "", p)
-    mp <- file.path(MONITORING_ROOT, "dashboard_app", rel)
-    if (!file.exists(mp)) { bad_mirror <- c(bad_mirror, paste0(basename(p), " (mirror missing)")); next }
-    if (file.info(p)$size != file.info(mp)$size) bad_mirror <- c(bad_mirror, paste0(basename(p), " (size differs)"))
+    mp <- file.path(MONITORING_ROOT, "dashboard_app", rel_of(p))
+    if (!file.exists(mp)) { bad_mirror <- c(bad_mirror, paste0(basename(p), " (not in the deployed copy yet)")); next }
+    if (unname(tools::md5sum(p)) != unname(tools::md5sum(mp))) bad_mirror <- c(bad_mirror, paste0(basename(p), " (content differs)"))
   }
   log <- check_result(log, "gis_layer_currency",
-                       "Every GIS layer is mirrored into dashboard_app/ at the same size (that bundle is all the deployed app can see)",
-                       if (length(bad_mirror) == 0) "PASS" else "FAIL",
-                       sprintf("%d of %d layer(s) differ between the canonical copy and the dashboard_app bundle%s - bundle_dashboard_mirrors() refreshes these; a mismatch means the deployed map is drawing something other than what this workspace holds",
+                       "Every bundled GIS layer in the deployed dashboard equals the canonical copy (that bundle is all the deployed app can see)",
+                       if (length(bad_mirror) == 0) "PASS" else "WARN",
+                       sprintf("%d of %d bundled layer(s) differ between the canonical copy and the deployed copy in dashboard_app/%s%s",
                                length(bad_mirror), length(mirrors),
-                               if (length(bad_mirror) == 0) "" else paste0(": ", paste(bad_mirror, collapse = ", "))),
+                               if (length(bad_mirror) == 0) "" else paste0(": ", paste(bad_mirror, collapse = ", ")),
+                               if (length(bad_mirror) == 0) "" else " - the deployed map is behind; the next deploy brings it up to date"),
                        length(bad_mirror))
 
   log
