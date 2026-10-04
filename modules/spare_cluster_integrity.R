@@ -33,9 +33,13 @@ SPARE_REQUIRED_COLS <- c("cluster_id", "strata_id", "pop_type", "partner", "buff
 # Pure core (no files), so every branch can be tested with made-up inputs.
 #   reg: register rows (cluster_id, strata_id); full_map: FULL rows (survey_id, cluster_id, strata_id)
 #   used_clusters: clusters with >= 1 achieved interview
+#   working_clusters: clusters with >= 1 row in WORKING. Like every KML, spare KMLs are WORKING-sourced: a spare whose
+#     points are all ward-inaccessible, below the household threshold or overlay-excluded is on the (FULL-sourced)
+#     sheet as Inaccessible but rightly NOT on a map - teams are never sent to inaccessible points (agreed 4 Oct).
 #   *_kml_ids: placemark names, SPARE prefix already stripped (Non-IDP = survey ids, IDP = cluster ids)
-#   *_clusters: values of a workbook sheet's "Cluster ID" column
-spare_findings <- function(reg, full_map, used_clusters, spare_kml_ids, normal_kml_ids, spare_sheet_clusters, available_clusters) {
+#   spare_sheet_clusters: "Cluster ID" values on "Spare Clusters"; ordinary_sheet_clusters: on Available to Collect,
+#     Sampling Points and Cluster Summary (the builders keep unused spares off every ordinary list)
+spare_findings <- function(reg, full_map, used_clusters, working_clusters, spare_kml_ids, normal_kml_ids, spare_sheet_clusters, ordinary_sheet_clusters) {
   to_cluster <- function(ids) unique(c(full_map$cluster_id[full_map$survey_id %in% ids], intersect(ids, full_map$cluster_id)))
   spare_kml_cl <- to_cluster(spare_kml_ids)
   normal_kml_cl <- to_cluster(normal_kml_ids)
@@ -48,8 +52,8 @@ spare_findings <- function(reg, full_map, used_clusters, spare_kml_ids, normal_k
     not_in_full = reg$cluster_id[!in_full],
     wrong_stratum = reg$cluster_id[in_full & !is.na(full_stratum) & full_stratum != reg$strata_id],
     unused_missing_from_spare_sheet = setdiff(unused, spare_sheet_clusters),
-    unused_missing_from_spare_kml = setdiff(unused, spare_kml_cl),
-    unused_on_available_to_collect = intersect(unused, available_clusters),
+    unused_missing_from_spare_kml = setdiff(intersect(unused, working_clusters), spare_kml_cl),
+    unused_on_ordinary_sheets = intersect(unused, ordinary_sheet_clusters),
     unused_in_normal_kml = intersect(unused, normal_kml_cl),
     unregistered_on_spare_sheet = setdiff(spare_sheet_clusters, reg$cluster_id),
     unregistered_in_spare_kml = setdiff(spare_kml_cl, reg$cluster_id),
@@ -108,11 +112,14 @@ run_spare_cluster_integrity_checks <- function(log) {
   ach <- fs_env$compute_achieved_lookup(subs_c, overlay_c)
   used_clusters <- unique(c(full_map$cluster_id[full_map$survey_id %in% ach$non_idp_survey_ids], ach$idp_counts$matched_cluster_id))
 
+  working_clusters <- unique(read_csv(latest_frame_file("NGA_MSNA_2026_stage2_sampling_frame", "WORKING"), show_col_types = FALSE,
+                                      col_types = cols(.default = "c"), col_select = "cluster_id")$cluster_id)
   normal_kml <- all_kml[!basename(all_kml) %in% c(SPARE_KML_FILE, "idp_clusters_tier2_backup.kml")]
-  f <- spare_findings(reg, full_map, used_clusters,
+  ordinary <- unique(c(sheet_clusters("Available to Collect"), sheet_clusters("Sampling Points"), sheet_clusters("Cluster Summary")))
+  f <- spare_findings(reg, full_map, used_clusters, working_clusters,
                       unique(unlist(lapply(spare_kml, .kml_placemark_ids))),
                       unique(unlist(lapply(normal_kml, .kml_placemark_ids))),
-                      spare_sheet, sheet_clusters("Available to Collect"))
+                      spare_sheet, ordinary)
   show <- function(x) if (length(x) == 0) "none" else paste(head(x, 12), collapse = ", ")
 
   bad_reg <- c(f$duplicate_ids, f$not_in_full, f$wrong_stratum)
@@ -122,16 +129,16 @@ run_spare_cluster_integrity_checks <- function(log) {
                               nrow(reg), f$n_unused, f$n_used, show(f$duplicate_ids), show(f$not_in_full), show(f$wrong_stratum)),
                       length(bad_reg))
   n_missing <- length(union(f$unused_missing_from_spare_sheet, f$unused_missing_from_spare_kml))
-  log <- check_result(log, mod, sprintf("Every unused spare is on its partner's '%s' sheet and in a %s", SPARE_SHEET, SPARE_KML_FILE),
+  log <- check_result(log, mod, sprintf("Every unused spare is on a '%s' sheet, and in a %s unless none of its points is in WORKING", SPARE_SHEET, SPARE_KML_FILE),
                       if (n_missing == 0) "PASS" else "FAIL",
-                      sprintf("not on a spare sheet: %s; not in a spare KML: %s - a spare a partner cannot see is no spare at all",
+                      sprintf("not on a spare sheet: %s; in WORKING but not in a spare KML: %s - a spare a partner cannot see is no spare at all (spares with no point in WORKING are inaccessible/excluded and rightly not mapped)",
                               show(f$unused_missing_from_spare_sheet), show(f$unused_missing_from_spare_kml)),
                       n_missing)
-  n_leak <- length(union(f$unused_on_available_to_collect, f$unused_in_normal_kml))
-  log <- check_result(log, mod, "No unused spare appears on 'Available to Collect' or in a primary/reserve KML",
+  n_leak <- length(union(f$unused_on_ordinary_sheets, f$unused_in_normal_kml))
+  log <- check_result(log, mod, "No unused spare appears on an ordinary sheet (Available to Collect, Sampling Points, Cluster Summary) or in a primary/reserve KML",
                       if (n_leak == 0) "PASS" else "FAIL",
-                      sprintf("on Available to Collect: %s; in a normal KML: %s - partners would treat it as an ordinary cluster to collect",
-                              show(f$unused_on_available_to_collect), show(f$unused_in_normal_kml)),
+                      sprintf("on an ordinary sheet: %s; in a normal KML: %s - partners would treat it as an ordinary cluster to collect",
+                              show(f$unused_on_ordinary_sheets), show(f$unused_in_normal_kml)),
                       n_leak)
   n_unreg <- length(union(f$unregistered_on_spare_sheet, f$unregistered_in_spare_kml))
   log <- check_result(log, mod, "Every cluster listed as a spare is in the register",

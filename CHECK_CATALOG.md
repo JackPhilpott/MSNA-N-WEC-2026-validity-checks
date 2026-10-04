@@ -195,8 +195,8 @@ A spare is used once it has at least one achieved interview. From then on it is 
 | No register yet → no spare files in partner packages either (unregistered spares would count as ordinary clusters) | **[LIVE]** |
 | Register has its required columns; 2_monitoring's copy is identical | **[LIVE]** |
 | Every registered spare is a FULL-frame cluster in the stated stratum, listed once | **[LIVE]** |
-| Every unused spare is on a "Spare Clusters" sheet and in a `spare_clusters.kml` | **[LIVE]** |
-| No unused spare appears on "Available to Collect" or in a primary/reserve KML | **[LIVE]** |
+| Every unused spare is on a "Spare Clusters" sheet, and in a `spare_clusters.kml` unless none of its points is in WORKING. Like every KML, spare KMLs are WORKING-sourced: an inaccessible, below-threshold or overlay-excluded spare is listed on the sheet as Inaccessible but rightly not mapped. | **[LIVE]** |
+| No unused spare appears on an ordinary sheet (Available to Collect, Sampling Points, Cluster Summary) or in a primary/reserve KML | **[LIVE]** |
 | Every cluster listed as a spare is in the register | **[LIVE]** |
 | Used spares have moved to the normal lists (WARN between a data refresh and the next build) | **[LIVE]** |
 
