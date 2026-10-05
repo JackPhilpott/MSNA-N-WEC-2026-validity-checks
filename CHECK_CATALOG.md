@@ -17,7 +17,7 @@ automatable the same way, listed for completeness.
 | Zero duplicate `survey_id` in FULL and WORKING | **[LIVE]** |
 | `target_sample` = `clusters_target_stage1*m_used` (PPS) or `achieved_clusters*m_used` (certainty), never `sum(target_households)` | **[LIVE]** |
 | WORKING is exactly FULL filtered by the documented rule set, re-derivable | **[LIVE]** (via achieved/target module's WORKING-state check) |
-| Household-row-count vs strata `achieved_sample` cross-check | **[LIVE]** |
+| Household-row-count vs strata `achieved_sample` cross-check. Since 5 Oct, unused spare clusters are left out on both sides, by the canonical rule in `1_sampling/scripts/shared/spare_clusters.R`, because 1_sampling's strata capacity fix (a9542c6) leaves them out of `achieved_clusters`/`achieved_sample`/`realized_moe_pct` | **[LIVE]** |
 | No literal string `"NA"` (vs real blank) in `ward_accessible_status` | **[LIVE]** |
 | `m_used` never shows a value outside the current boost mechanism (currently: always 6) | **[LIVE]** |
 | Reserve/target columns present and non-null across all 3 Stage-2 paths (Non-IDP draw, reallocation, IDP) | **[LIVE]** |
@@ -63,6 +63,7 @@ automatable the same way, listed for completeness.
 | MSNA Light never leaks into a partner's normal deliverable sheets/KML folder | **[LIVE]** |
 | Fully-achieved IDP clusters have no lingering KML placemark | **[LIVE]** (regression guard for the 2026-09-19 fix) — found 7 live instances on first run (2026-09-20), see run log; resolves automatically on the next full partner-package rebuild |
 | No live cluster field guide (factsheet) exists for a cluster the frame no longer contains — the KML checks never covered the printed `Cluster_guide/*.docx` guides at all; found 8 live guides for retired Nganzai clusters the night MSNA Light was resolved, i.e. a field team working from print would still have been sent to all 8. Completion doesn't trip it (a Complete cluster stays in FULL); already-archived guides are ignored, since archiving is the existing retirement convention | **[LIVE]** (2026-09-23) |
+| Every partner KML file could be read. A file that can't be opened (e.g. a cloud-only file OneDrive can't download) used to read as "no placemarks" and pass every check above vacuously. Two CARE leftovers passed at 02:20 on 5 Oct, while OneDrive was busy, and failed at 08:20 | **[LIVE]** (2026-10-05) |
 
 ## Module: `cross_repo_propagation_freshness`
 | Check | Status |
@@ -199,6 +200,7 @@ A spare is used once it has at least one achieved interview. From then on it is 
 | No unused spare appears on an ordinary sheet (Available to Collect, Sampling Points, Cluster Summary) or in a primary/reserve KML | **[LIVE]** |
 | Every cluster listed as a spare is in the register | **[LIVE]** |
 | Used spares have moved to the normal lists (WARN between a data refresh and the next build) | **[LIVE]** |
+| Every spare KML file could be read (an unreadable file would pass the checks above vacuously) | **[LIVE]** (2026-10-05) |
 
 `partner_package_alignment` strips the "SPARE - " label when reading placemarks, so a spare (which is in WORKING) counts as present on a map rather than missing.
 

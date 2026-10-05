@@ -24,8 +24,26 @@ SPARE_REQUIRED_COLS <- c("cluster_id", "strata_id", "pop_type", "partner", "buff
 
 .spare_strip <- function(x) ifelse(startsWith(x, SPARE_PREFIX), substring(x, nchar(SPARE_PREFIX) + 1), x)
 
+# 2026-10-05: an unreadable KML used to read as "no placemarks" (tryCatch -> character(0)), so it passed every check
+# vacuously - probably how two CARE leftovers passed at 02:20 (OneDrive busy) and failed at 08:20 on 5 Oct. Every
+# unreadable file is now recorded and reported as its own FAIL.
+if (!exists("KML_READ_FAILURES")) { KML_READ_FAILURES <- new.env(); KML_READ_FAILURES$paths <- character(0) }
+.record_kml_read_failure <- function(path) { KML_READ_FAILURES$paths <- unique(c(KML_READ_FAILURES$paths, path)); NULL }
+report_kml_read_failures <- function(log, module) {
+  bad <- KML_READ_FAILURES$paths
+  KML_READ_FAILURES$paths <- character(0)
+  check_result(log, module, "Every partner KML file could be read (an unreadable file would pass the checks above vacuously)",
+               if (length(bad) == 0) "PASS" else "FAIL",
+               if (length(bad) == 0) "all readable" else
+                 sprintf("%d unreadable KML file(s) - usually cloud-only files OneDrive could not download (is it running and signed in?); re-run once they open: %s",
+                         length(bad), paste(head(bad, 8), collapse = "; ")),
+               length(bad))
+}
+
 .kml_placemark_ids <- function(path) {
-  txt <- paste(tryCatch(readLines(path, warn = FALSE, encoding = "UTF-8"), error = function(e) character(0)), collapse = "\n")
+  lines <- tryCatch(readLines(path, warn = FALSE, encoding = "UTF-8"), error = function(e) .record_kml_read_failure(path))
+  if (is.null(lines)) return(character(0))
+  txt <- paste(lines, collapse = "\n")
   ids <- trimws(.spare_strip(str_match_all(txt, "<name>([^<]+)</name>")[[1]][, 2]))
   unique(ids[ids != ""])
 }
@@ -151,5 +169,6 @@ run_spare_cluster_integrity_checks <- function(log) {
                       sprintf("%d used spare(s) still listed as spares: %s - expected only between a data refresh and the next package build",
                               length(f$used_still_listed_as_spare), show(f$used_still_listed_as_spare)),
                       length(f$used_still_listed_as_spare))
+  log <- report_kml_read_failures(log, "spare_cluster_integrity")
   log
 }

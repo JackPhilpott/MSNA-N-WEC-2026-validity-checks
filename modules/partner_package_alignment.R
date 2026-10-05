@@ -10,8 +10,25 @@ library(readxl)
 library(stringr)
 library(purrr)
 
+# 2026-10-05: an unreadable KML used to read as "no placemarks" (tryCatch -> character(0)), so it passed every check
+# vacuously - probably how two CARE leftovers passed at 02:20 (OneDrive busy) and failed at 08:20 on 5 Oct. Every
+# unreadable file is now recorded and reported as its own FAIL.
+if (!exists("KML_READ_FAILURES")) { KML_READ_FAILURES <- new.env(); KML_READ_FAILURES$paths <- character(0) }
+.record_kml_read_failure <- function(path) { KML_READ_FAILURES$paths <- unique(c(KML_READ_FAILURES$paths, path)); NULL }
+report_kml_read_failures <- function(log, module) {
+  bad <- KML_READ_FAILURES$paths
+  KML_READ_FAILURES$paths <- character(0)
+  check_result(log, module, "Every partner KML file could be read (an unreadable file would pass the checks above vacuously)",
+               if (length(bad) == 0) "PASS" else "FAIL",
+               if (length(bad) == 0) "all readable" else
+                 sprintf("%d unreadable KML file(s) - usually cloud-only files OneDrive could not download (is it running and signed in?); re-run once they open: %s",
+                         length(bad), paste(head(bad, 8), collapse = "; ")),
+               length(bad))
+}
+
 parse_kml_ids <- function(path) {
-  txt <- tryCatch(readLines(path, warn = FALSE, encoding = "UTF-8"), error = function(e) character(0))
+  txt <- tryCatch(readLines(path, warn = FALSE, encoding = "UTF-8"), error = function(e) .record_kml_read_failure(path))
+  if (is.null(txt)) return(character(0))
   txt <- paste(txt, collapse = "\n")
   ids <- str_match_all(txt, "<name>([^<]+)</name>")[[1]][, 2]
   # 2026-10-04: spare clusters' placemarks are labelled "SPARE - <id>"; strip the label so a spare (which is in
@@ -217,5 +234,6 @@ run_partner_package_alignment_checks <- function(log) {
                        "No live cluster field guide (factsheet) exists for a cluster the frame no longer contains",
                        stale_guides$status, stale_guides$detail, stale_guides$count)
 
+  log <- report_kml_read_failures(log, "partner_package_alignment")
   log
 }

@@ -57,14 +57,27 @@ run_frame_integrity_checks <- function(log) {
   # historical row count (never accessibility-filtered - see the 2026-09-05
   # "IMPORTANT TERMINOLOGY" note) - so it must equal the actual primary-row
   # count in household-level FULL for that stratum, exactly.
-  hh_counts <- full %>% filter(status == "primary") %>% count(strata_id, name = "row_count")
+  # 2026-10-05: spare (buffer) clusters. 1_sampling's frame refresh leaves UNUSED spares out of the strata-level
+  # design capacity (achieved_clusters / achieved_sample / realized_moe_pct), by the canonical rule in
+  # 1_sampling/scripts/shared/spare_clusters.R (used = >= 1 achieved interview). The row count leaves out the
+  # primary rows of unused spare clusters by the same rule. No register = no spares = the original check.
+  unused_spares <- character(0)
+  reg_path <- file.path(SAMPLING_ROOT, "output/data/data_collection/buffer_cluster_register.csv")
+  if (file.exists(reg_path)) {
+    source(file.path(SAMPLING_ROOT, "scripts/shared/spare_clusters.R"), local = (sc_env <- new.env()))
+    subs_c <- read_csv(file.path(MONITORING_ROOT, "data/real_submissions.csv"), show_col_types = FALSE, col_types = cols(.default = "c"))
+    overlay_c <- read_csv(file.path(MONITORING_ROOT, "data/CONFIRMED_DELETIONS_OVERLAY.csv"), show_col_types = FALSE, col_types = cols(.default = "c"))
+    reg <- sc_env$load_spare_register(SAMPLING_ROOT)
+    unused_spares <- sc_env$unused_spare_ids(reg, sc_env$achieved_by_cluster(subs_c, sc_env$deletion_excluded_uuids(overlay_c)))
+  }
+  hh_counts <- full %>% filter(status == "primary", !cluster_id %in% unused_spares) %>% count(strata_id, name = "row_count")
   row_check <- strata %>% select(strata_id, achieved_sample) %>%
     left_join(hh_counts, by = "strata_id") %>%
     mutate(row_count = coalesce(row_count, 0L), diff = achieved_sample - row_count)
   row_bad <- sum(row_check$diff != 0, na.rm = TRUE)
-  log <- check_result(log, "frame_integrity", "Strata-level FULL achieved_sample equals the real primary-row count in household-level FULL",
+  log <- check_result(log, "frame_integrity", "Strata-level FULL achieved_sample equals the real primary-row count in household-level FULL (unused spare clusters excluded)",
                        if (row_bad == 0) "PASS" else "FAIL",
-                       sprintf("%d of %d strata have achieved_sample disagreeing with a direct count of primary rows for that strata_id in household-level FULL", row_bad, nrow(row_check)),
+                       sprintf("%d of %d strata have achieved_sample disagreeing with a direct count of primary rows for that strata_id in household-level FULL, leaving out %d unused spare cluster(s)", row_bad, nrow(row_check), length(unused_spares)),
                        row_bad)
 
   # ---- m_used never outside the current boost mechanism (currently: 6
